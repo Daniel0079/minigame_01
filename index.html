@@ -139,14 +139,14 @@
 <body>
   <h1>🤪 搞怪小遊戲集合</h1>
   <div class="menu">
-    <button onclick="switchGame(1)" class="active" id="btn1">逃跑按鈕</button>
+    <button onclick="switchGame(3)" class="active" id="btn3">接奇怪的東西</button>
+    <button onclick="switchGame(1)" id="btn1">逃跑按鈕</button>
     <button onclick="switchGame(2)" id="btn2">搞怪點擊</button>
-    <button onclick="switchGame(3)" id="btn3">接奇怪的東西</button>
   </div>
 
   <div class="game-container">
     <!-- Game 1 -->
-    <div id="game1" class="game active">
+    <div id="game1" class="game">
       <div id="score1">成功點到次數：0</div>
       <div class="instructions">試著點中那個黃色按鈕（它會逃）</div>
       <button id="flee-btn" onmouseenter="flee()" onclick="caught()">點我啊！</button>
@@ -160,10 +160,12 @@
     </div>
 
     <!-- Game 3 -->
-    <div id="game3" class="game">
-      <div id="catch-score">分數：0　（點擊掉下來的東西）</div>
-      <div class="instructions">點擊掉下來的奇怪物品得分！小心炸彈💣</div>
-      <div id="catch-area"></div>
+    <div id="game3" class="game active">
+      <div id="catch-score">分數：0　漏接：0 / 5</div>
+      <div class="instructions" id="catch-instructions">點「開始」後，點擊掉下來的物品得分！炸彈點了算漏接，不點會給分。</div>
+      <div id="catch-area" style="position:relative;">
+        <button id="start-catch" onclick="startCatchGame()" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;padding:14px 32px;font-size:1.3rem;background:#4ecdc4;color:#fff;border:none;border-radius:30px;cursor:pointer;font-weight:bold;box-shadow:0 4px 15px rgba(0,0,0,0.3);">開始遊戲</button>
+      </div>
     </div>
   </div>
 
@@ -246,8 +248,11 @@ function switchGame(n) {
   document.querySelectorAll('.menu button').forEach(b => b.classList.remove('active'));
   document.getElementById('game' + n).classList.add('active');
   document.getElementById('btn' + n).classList.add('active');
-  if (n === 3) startFalling();
-  else stopFalling();
+  if (n === 3) {
+    // 切到第三個遊戲時不自動開始，等玩家按開始
+    stopFalling();
+    resetCatchUI();
+  } else stopFalling();
 }
 
 // ===== Game 1: 逃跑按鈕 =====
@@ -334,26 +339,87 @@ function sillyClick() {
 
 // ===== Game 3: 接奇怪的東西 =====
 let score3 = 0;
+let misses = 0;
 let fallInterval = null;
+let gameOver = false;
+const MAX_MISSES = 5;
 const items = ['🍌','🍎','🍩','🍕','🦄','🐸','💩','⭐','💣','👻','🐱','🌮'];
-const goodItems = ['🍌','🍎','🍩','🍕','🦄','🐸','⭐','👻','🐱','🌮'];
+
+function resetCatchUI() {
+  score3 = 0;
+  misses = 0;
+  gameOver = false;
+  document.getElementById('catch-score').textContent = '分數：0　漏接：0 / 5';
+  document.getElementById('catch-instructions').textContent = '點「開始」後，點擊掉下來的物品得分！炸彈點了算漏接，不點會給分。';
+  const area = document.getElementById('catch-area');
+  if (area) {
+    // 只清掉掉落物，保留開始按鈕
+    Array.from(area.children).forEach(child => {
+      if (child.id !== 'start-catch') child.remove();
+    });
+  }
+  const startBtn = document.getElementById('start-catch');
+  if (startBtn) {
+    startBtn.style.display = 'block';
+    startBtn.textContent = '開始遊戲';
+  }
+}
+
+function startCatchGame() {
+  if (gameOver) return;
+  resetCatchUI();
+  gameOver = false;
+  document.getElementById('start-catch').style.display = 'none';
+  document.getElementById('catch-instructions').textContent = '點擊掉下來的物品！炸彈💣點了算漏接，不點會給分。';
+  startFalling();
+}
 
 function startFalling() {
   if (fallInterval) return;
-  document.getElementById('catch-area').innerHTML = '';
-  score3 = 0;
-  document.getElementById('catch-score').textContent = '分數：0　（點擊掉下來的東西）';
   fallInterval = setInterval(spawnItem, 700);
 }
+
 function stopFalling() {
   if (fallInterval) {
     clearInterval(fallInterval);
     fallInterval = null;
   }
 }
+
+function endGame() {
+  gameOver = true;
+  stopFalling();
+  // 清掉還在掉的物品（保留開始按鈕）
+  const area = document.getElementById('catch-area');
+  if (area) {
+    Array.from(area.children).forEach(child => {
+      if (child.id !== 'start-catch') child.remove();
+    });
+  }
+  document.getElementById('catch-score').textContent = '遊戲結束！分數：' + score3 + '　漏接滿 5 次';
+  document.getElementById('catch-instructions').textContent = '再玩一次？';
+  const startBtn = document.getElementById('start-catch');
+  if (startBtn) {
+    startBtn.style.display = 'block';
+    startBtn.textContent = '再玩一次';
+  }
+}
+
+function getSpeed() {
+  // 分數越高，快速的機率越高
+  const fastChance = Math.min(0.8, 0.2 + score3 * 0.05);
+  if (Math.random() < fastChance) {
+    return 4 + Math.random() * 4;   // 快速 4~8
+  } else {
+    return 1.5 + Math.random() * 2.5; // 慢速 1.5~4
+  }
+}
+
 function spawnItem() {
+  if (gameOver) return;
   const area = document.getElementById('catch-area');
   if (!area) return;
+
   const el = document.createElement('div');
   el.className = 'falling';
   const item = items[Math.floor(Math.random() * items.length)];
@@ -363,17 +429,43 @@ function spawnItem() {
   area.appendChild(el);
 
   let top = -40;
-  const speed = 2 + Math.random() * 3;
+  const speed = getSpeed();
+  const isBomb = item === '💣';
+  let clicked = false;
+
   const timer = setInterval(() => {
+    if (gameOver) {
+      clearInterval(timer);
+      el.remove();
+      return;
+    }
     top += speed;
     el.style.top = top + 'px';
     if (top > area.clientHeight) {
       clearInterval(timer);
       el.remove();
+      // 掉出畫面
+      if (!clicked) {
+        if (isBomb) {
+          // 不點炸彈 = 給分，不算漏接
+          score3 += 1;
+          playCatch();
+          updateCatchScore('避開炸彈 +1');
+        } else {
+          // 普通物品漏接
+          misses++;
+          updateCatchScore('漏接！');
+          if (misses >= MAX_MISSES) {
+            endGame();
+          }
+        }
+      }
     }
   }, 30);
 
   el.onclick = () => {
+    if (clicked || gameOver) return;
+    clicked = true;
     clearInterval(timer);
     // 點中動畫
     el.style.transition = 'transform 0.2s, opacity 0.2s';
@@ -381,16 +473,25 @@ function spawnItem() {
     el.style.opacity = '0';
     setTimeout(() => el.remove(), 200);
 
-    if (item === '💣') {
+    if (isBomb) {
+      // 點炸彈 = 算漏接
       playBomb();
-      score3 = Math.max(0, score3 - 5);
-      document.getElementById('catch-score').textContent = '分數：' + score3 + '　💥 炸彈！扣分';
+      misses++;
+      updateCatchScore('💥 點到炸彈！漏接');
+      if (misses >= MAX_MISSES) {
+        endGame();
+      }
     } else {
+      // 點普通物品 = 得分
       playCatch();
       score3++;
-      document.getElementById('catch-score').textContent = '分數：' + score3 + '　接住了！';
+      updateCatchScore('接住了！');
     }
   };
+}
+
+function updateCatchScore(msg) {
+  document.getElementById('catch-score').textContent = '分數：' + score3 + '　漏接：' + misses + ' / 5　' + msg;
 }
 
 // 初始化逃跑按鈕位置
