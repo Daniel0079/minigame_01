@@ -134,6 +134,36 @@
   .falling:hover { transform: scale(1.2); }
   #catch-score { font-size: 1.3rem; margin-bottom: 8px; }
   .instructions { font-size: 0.95rem; opacity: 0.85; margin-bottom: 12px; }
+
+  /* 炸彈爆炸效果 */
+  .explosion {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ff6b6b 0%, #ff9f43 40%, transparent 70%);
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 1;
+    animation: explode 0.5s ease-out forwards;
+    z-index: 20;
+  }
+  @keyframes explode {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+  }
+  .explosion-text {
+    position: absolute;
+    font-size: 2rem;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: explodeText 0.6s ease-out forwards;
+    z-index: 21;
+  }
+  @keyframes explodeText {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    100% { transform: translate(-50%, -80%) scale(1.5); opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -149,7 +179,7 @@
     <div id="game1" class="game">
       <div id="score1">成功點到次數：0</div>
       <div class="instructions">試著點中那個黃色按鈕（它會逃）</div>
-      <button id="flee-btn" onmouseenter="flee()" onclick="caught()">點我啊！</button>
+      <button id="flee-btn" onmouseenter="flee()" ontouchstart="flee(event)" onclick="caught()">點我啊！</button>
     </div>
 
     <!-- Game 2 -->
@@ -257,7 +287,10 @@ function switchGame(n) {
 
 // ===== Game 1: 逃跑按鈕 =====
 let score1 = 0;
-function flee() {
+function flee(e) {
+  if (e && e.type === 'touchstart') {
+    e.preventDefault(); // 防止手機上同時觸發 click
+  }
   playFlee();
   const btn = document.getElementById('flee-btn');
   const container = btn.parentElement;
@@ -386,7 +419,7 @@ function stopFalling() {
   }
 }
 
-function endGame() {
+function endGame(byBomb = false) {
   gameOver = true;
   stopFalling();
   // 清掉還在掉的物品（保留開始按鈕）
@@ -396,7 +429,18 @@ function endGame() {
       if (child.id !== 'start-catch') child.remove();
     });
   }
-  document.getElementById('catch-score').textContent = '遊戲結束！分數：' + score3 + '　漏接滿 5 次';
+  let msg = '遊戲結束！分數：' + score3 + '　漏接滿 5 次';
+  if (byBomb) {
+    const taunts = [
+      '手滑點到炸彈了嗎？',
+      '炸彈看起來很誘人？',
+      '下次記得躲一下喔',
+      '點炸彈的感覺如何？',
+      '炸彈：謝謝你點我'
+    ];
+    msg = '遊戲結束！分數：' + score3 + '<br>' + taunts[Math.floor(Math.random() * taunts.length)];
+  }
+  document.getElementById('catch-score').innerHTML = msg;
   document.getElementById('catch-instructions').textContent = '再玩一次？';
   const startBtn = document.getElementById('start-catch');
   if (startBtn) {
@@ -488,6 +532,33 @@ function spawnItem() {
       updateCatchScore('接住了！');
     }
   };
+}
+
+function createExplosion(el, area) {
+  const rect = el.getBoundingClientRect();
+  const areaRect = area.getBoundingClientRect();
+  const x = rect.left - areaRect.left + rect.width / 2;
+  const y = rect.top - areaRect.top + rect.height / 2;
+
+  // 爆炸圓形
+  const exp = document.createElement('div');
+  exp.className = 'explosion';
+  exp.style.left = x + 'px';
+  exp.style.top = y + 'px';
+  area.appendChild(exp);
+
+  // 爆炸文字
+  const txt = document.createElement('div');
+  txt.className = 'explosion-text';
+  txt.textContent = '💥';
+  txt.style.left = x + 'px';
+  txt.style.top = y + 'px';
+  area.appendChild(txt);
+
+  setTimeout(() => {
+    exp.remove();
+    txt.remove();
+  }, 600);
 }
 
 function updateCatchScore(msg) {
