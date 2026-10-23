@@ -399,9 +399,7 @@ function resetCatchUI() {
 }
 
 function startCatchGame() {
-  if (gameOver) return;
-  resetCatchUI();
-  gameOver = false;
+  resetCatchUI();          // 這裡會把 gameOver 設回 false
   document.getElementById('start-catch').style.display = 'none';
   document.getElementById('catch-instructions').textContent = '點擊掉下來的物品！炸彈💣點了算漏接，不點會給分。';
   startFalling();
